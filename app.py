@@ -6,24 +6,17 @@ from ui_components import LockScreen, Theme, RoundedButton
 
 
 class SecretWallet:
-    # Главный класс приложения - хранилище секретов
-
     def __init__(self, root):
         self.root = root
         self.root.title("🔐 Storage of Secrets")
 
-        # Устанавливаем черный фон сразу
-        self.root.configure(bg='black')
-
-        # Попытка загрузки иконки приложения
         try:
             self.root.iconphoto(True, tk.PhotoImage(file="Hakaton_image.png"))
         except:
             try:
                 self.root.iconphoto(True, tk.PhotoImage(file="Hakaton_image.jpg"))
             except:
-                # Иконка не загружена - приложение продолжит работу без нее
-                pass
+                print("Не удалось загрузить иконку приложения")
 
         self.root.state('zoomed')
         self.db = Database()
@@ -31,81 +24,59 @@ class SecretWallet:
         self.current_secret_data = None
         self.theme_manager = Theme()
         self.current_theme = self.theme_manager.get_theme()
-
-        # Создаем экран блокировки и форсируем отрисовку
         self.lock_screen = LockScreen(root)
-        self.root.update()  # Форсируем обновление интерфейса
-
         self.verify_master_password_on_startup()
 
     def verify_master_password_on_startup(self):
-        # Проверка и установка мастер-пароля при запуске
         if not self.db.is_master_password_set():
-            # Даем время на отрисовку экрана блокировки
-            self.root.after(100, self._setup_master_password)
+            self.lock_screen.destroy()
+            messagebox.showinfo("Настройка", "Установите мастер-пароль для защиты ваших секретов.")
+
+            while True:
+                password = self.ask_password("Установка мастер-пароля", "Введите новый мастер-пароль:")
+                if not password:
+                    if messagebox.askyesno("Подтверждение",
+                                           "Без мастер-пароля вы не сможете сохранять секреты. Вы уверены?"):
+                        self.root.destroy()
+                        return
+                    continue
+
+                confirm = self.ask_password("Подтверждение", "Повторите мастер-пароль:")
+
+                if password == confirm:
+                    if self.db.set_master_password(password):
+                        messagebox.showinfo("Успех", "Мастер-пароль успешно установлен!")
+                        self.setup_ui()
+                        self.apply_theme()
+                        self.load_secrets()
+                        break
+                    else:
+                        messagebox.showerror("Ошибка", "Не удалось установить мастер-пароль")
+                else:
+                    messagebox.showerror("Ошибка", "Пароли не совпадают. Попробуйте снова.")
         else:
-            self.root.after(100, self._verify_master_password)
-
-    def _setup_master_password(self):
-        # Настройка мастер-пароля
-        self.lock_screen.destroy()
-        messagebox.showinfo("Настройка", "Установите мастер-пароль для защиты ваших секретов.")
-        self._setup_master_password_loop()
-
-    def _setup_master_password_loop(self):
-        # Цикл установки мастер-пароля
-        password = self.ask_password("Установка мастер-пароля", "Введите новый мастер-пароль:")
-        if not password:
-            if messagebox.askyesno("Подтверждение",
-                                   "Без мастер-пароля вы не сможете сохранять секреты. Вы уверены?"):
+            password = self.ask_password("Мастер-пароль", "Введите мастер-пароль:")
+            if not password or not self.db.verify_master_password(password):
+                messagebox.showerror("Ошибка", "Неверный мастер-пароль!")
                 self.root.destroy()
-                return
-            self._setup_master_password_loop()
-            return
-
-        confirm = self.ask_password("Подтверждение", "Повторите мастер-пароль:")
-
-        if password == confirm:
-            if self.db.set_master_password(password):
-                messagebox.showinfo("Успех", "Мастер-пароль успешно установлен!")
+            else:
+                self.lock_screen.destroy()
                 self.setup_ui()
                 self.apply_theme()
                 self.load_secrets()
-            else:
-                messagebox.showerror("Ошибка", "Не удалось установить мастер-пароль")
-                self._setup_master_password_loop()
-        else:
-            messagebox.showerror("Ошибка", "Пароли не совпадают. Попробуйте снова.")
-            self._setup_master_password_loop()
-
-    def _verify_master_password(self):
-        # Проверка существующего мастер-пароля
-        password = self.ask_password("Мастер-пароль", "Введите мастер-пароль:")
-        if not password or not self.db.verify_master_password(password):
-            messagebox.showerror("Ошибка", "Неверный мастер-пароль!")
-            self.root.destroy()
-        else:
-            self.lock_screen.destroy()
-            self.setup_ui()
-            self.apply_theme()
-            self.load_secrets()
 
     def ask_password(self, title, prompt):
-        # Запрос пароля через диалоговое окно
         return PasswordDialog(self.root, title, prompt).show()
 
     def ask_password_for_secret(self, secret_name, action="просмотра"):
-        # Запрос пароля для работы с конкретным секретом
         return SecretPasswordDialog(
             self.root, secret_name, action, self.current_theme
         ).show()
 
     def setup_ui(self):
-        # Настройка пользовательского интерфейса
         main_frame = tk.Frame(self.root, bg=self.current_theme["bg"])
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Панель поиска
         search_frame = tk.Frame(main_frame, bg=self.current_theme["bg"])
         search_frame.pack(fill=tk.X, pady=(12, 8), padx=12)
 
@@ -121,7 +92,6 @@ class SecretWallet:
         self.search_entry.pack(side=tk.LEFT, padx=(0, 12))
         self.search_entry.bind('<KeyRelease>', self.on_search)
 
-        # Панель кнопок управления
         btn_frame = tk.Frame(search_frame, bg=self.current_theme["bg"])
         btn_frame.pack(side=tk.RIGHT)
 
@@ -141,11 +111,9 @@ class SecretWallet:
                                 width=width, height=32, corner_radius=20)
             btn.grid(row=0, column=i, padx=(0, 6))
 
-        # Основная область контента
         content_frame = tk.Frame(main_frame, bg=self.current_theme["bg"])
         content_frame.pack(fill=tk.BOTH, expand=True, padx=12, pady=8)
 
-        # Левая панель - список секретов
         list_frame = tk.Frame(content_frame, bg=self.current_theme["bg"])
         list_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
@@ -165,7 +133,6 @@ class SecretWallet:
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.secrets_list.configure(yscrollcommand=scrollbar.set)
 
-        # Правая панель - детали секрета
         details_frame = tk.LabelFrame(content_frame, text="Детали секрета", padx=12, pady=12,
                                       bg=self.current_theme["bg"], fg=self.current_theme["fg"],
                                       font=("Arial", 12))
@@ -192,7 +159,6 @@ class SecretWallet:
                                     font=("Arial", 11))
         self.details_text.pack(fill=tk.BOTH, expand=True)
 
-        # Панель действий
         btn_frame2 = tk.Frame(main_frame, bg=self.current_theme["bg"])
         btn_frame2.pack(fill=tk.X, pady=12, padx=12)
 
@@ -211,7 +177,6 @@ class SecretWallet:
                                 width=width, height=32, corner_radius=20)
             btn.grid(row=0, column=i, padx=(0, 6))
 
-        # Строка состояния
         self.status_var = tk.StringVar(value="Готов к работе")
         status_bar = tk.Label(main_frame, textvariable=self.status_var, relief=tk.SUNKEN,
                               bg=self.current_theme["status_bg"], fg=self.current_theme["status_fg"],
@@ -219,18 +184,15 @@ class SecretWallet:
         status_bar.pack(fill=tk.X, padx=12, pady=(0, 12))
 
     def exit_app(self):
-        # Выход из приложения
         if messagebox.askyesno("Выход", "Вы уверены, что хотите выйти из приложения?"):
             self.root.destroy()
 
     def apply_theme(self):
-        # Применение текущей темы ко всем элементам интерфейса
         theme = self.current_theme
         self.root.configure(bg=theme["bg"])
         self.apply_theme_to_widget(self.root, theme)
 
     def apply_theme_to_widget(self, widget, theme):
-        # Рекурсивное применение темы к виджету и его дочерним элементам
         try:
             if isinstance(widget, tk.Entry):
                 widget.configure(bg=theme["entry_bg"], fg=theme["entry_fg"],
@@ -257,13 +219,11 @@ class SecretWallet:
             self.apply_theme_to_widget(child, theme)
 
     def toggle_theme(self):
-        # Переключение между темами оформления
         self.current_theme = self.theme_manager.toggle_theme()
         self.apply_theme()
         self.load_secrets()
 
     def load_secrets(self, search_term=None):
-        # Загрузка и отображение списка секретов
         if search_term is None:
             search_term = self.search_var.get()
 
@@ -286,11 +246,9 @@ class SecretWallet:
             self.status_var.set(f"Загружено {count} секретов")
 
     def on_search(self, event=None):
-        # Обработчик поиска секретов
         self.load_secrets()
 
     def add_secret(self):
-        # Добавление нового секрета
         dialog = AddSecretDialog(self.root, self.current_theme)
         if dialog.result:
             name, secret_data = dialog.result
@@ -306,7 +264,6 @@ class SecretWallet:
                 self.status_var.set(f"Секрет '{name}' сохранен")
 
     def on_secret_select(self, event=None):
-        # Обработчик выбора секрета из списка
         selection = self.secrets_list.curselection()
         if not selection:
             return
@@ -315,7 +272,6 @@ class SecretWallet:
         self.show_secret_details(secret_name)
 
     def show_secret_details(self, secret_name):
-        # Отображение деталей выбранного секрета
         self.password_visible = False
         self.toggle_password_btn.config(text="👁 Показать пароль")
 
@@ -350,7 +306,6 @@ class SecretWallet:
         self.status_var.set(f"Загружен секрет: {secret_name}")
 
     def toggle_password_visibility(self):
-        # Переключение видимости пароля в деталях секрета
         if not self.current_secret_name:
             return
 
@@ -384,7 +339,6 @@ class SecretWallet:
             self.password_visible = True
 
     def copy_connection_string(self):
-        # Копирование строки подключения в буфер обмена
         if not hasattr(self, 'current_secret_name') or not self.current_secret_name:
             messagebox.showwarning("Предупреждение", "Сначала выберите секрет")
             return
@@ -409,7 +363,6 @@ class SecretWallet:
         messagebox.showinfo("Успех", "Строка подключения скопирована в буфер обмена!")
 
     def delete_secret(self):
-        # Удаление выбранного секрета
         selection = self.secrets_list.curselection()
         if not selection:
             messagebox.showwarning("Предупреждение", "Сначала выберите секрет для удаления")
@@ -432,7 +385,6 @@ class SecretWallet:
             messagebox.showinfo("Успех", f"Секрет '{secret_name}' удален")
 
     def show_db_connection(self):
-        # Отображение информации о подключении к БД
         if not hasattr(self, 'current_secret_name') or not self.current_secret_name:
             messagebox.showwarning("Предупреждение", "Сначала выберите секрет")
             return
