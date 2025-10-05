@@ -2,7 +2,7 @@ import tkinter as tk
 
 
 class LockScreen:
-    """Экран блокировки с замком"""
+    #Экран блокировки с замком
 
     def __init__(self, root):
         self.root = root
@@ -13,11 +13,11 @@ class LockScreen:
         self.canvas.bind("<Configure>", self.on_resize)
 
     def on_resize(self, event):
-        """Перерисовываем замок при изменении размера окна"""
+        #Перерисовываем замок при изменении размера окна
         self.draw_lock()
 
     def draw_lock(self):
-        """Рисует белый замок на черном фоне"""
+        #Рисует белый замок на черном фоне
         self.canvas.delete("all")
         width = self.root.winfo_width()
         height = self.root.winfo_height()
@@ -50,4 +50,5 @@ class LockScreen:
 
     def destroy(self):
         """Удаляет экран блокировки"""
+
         self.canvas.destroy()
