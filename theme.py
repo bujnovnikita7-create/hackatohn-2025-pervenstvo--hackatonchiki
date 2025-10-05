@@ -1,5 +1,5 @@
 class Theme:
-    """Управление темами оформления"""
+    #Управление темами оформления"
 
     def __init__(self):
         self.current_theme = "dark"
@@ -31,4 +31,5 @@ class Theme:
 
     def toggle_theme(self):
         self.current_theme = "light" if self.current_theme == "dark" else "dark"
+
         return self.get_theme()
