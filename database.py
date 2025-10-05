@@ -7,16 +7,16 @@ import hashlib
 
 
 class Database:
-    #Управление базой данных секретов
+    # Класс для работы с базой данных и шифрованием секретов
 
     def __init__(self, db_path='secrets.db'):
         self.db_path = db_path
         self.init_database()
 
     def init_database(self):
+        # Инициализация базы данных и создание таблиц
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS secrets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,7 +26,6 @@ class Database:
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS master_password (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -35,11 +34,11 @@ class Database:
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-
         conn.commit()
         conn.close()
 
     def is_master_password_set(self) -> bool:
+        # Проверка установлен ли мастер-пароль
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('SELECT 1 FROM master_password WHERE id = 1')
@@ -48,19 +47,17 @@ class Database:
         return result is not None
 
     def set_master_password(self, master_password: str) -> bool:
+        # Установка мастер-пароля
         try:
             if self.is_master_password_set():
                 return False
-
             password_hash, salt = self._hash_password(master_password)
-
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute('''
                 INSERT INTO master_password (id, password_hash, salt)
                 VALUES (1, ?, ?)
             ''', (password_hash, salt))
-
             conn.commit()
             conn.close()
             return True
@@ -69,13 +66,13 @@ class Database:
             return False
 
     def verify_master_password(self, master_password: str) -> bool:
+        # Проверка мастер-пароля
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute('SELECT password_hash, salt FROM master_password WHERE id = 1')
             result = cursor.fetchone()
             conn.close()
-
             if result:
                 stored_hash, salt = result
                 return self._verify_password(master_password, stored_hash, salt)
@@ -85,21 +82,18 @@ class Database:
             return False
 
     def save_secret(self, name, secret_data, master_password):
+        # Сохранение секрета в базу данных
         try:
             if not self.verify_master_password(master_password):
                 return False
-
             json_data = json.dumps(secret_data)
             encrypted_data = self._encrypt_data(json_data, master_password)
-
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-
             cursor.execute('''
                 INSERT OR REPLACE INTO secrets (name, encrypted_data, updated_at)
                 VALUES (?, ?, ?)
             ''', (name, encrypted_data, datetime.now()))
-
             conn.commit()
             conn.close()
             return True
@@ -108,17 +102,15 @@ class Database:
             return False
 
     def get_secret(self, name, master_password):
+        # Получение секрета из базы данных
         try:
             if not self.verify_master_password(master_password):
                 return None
-
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-
             cursor.execute('SELECT encrypted_data FROM secrets WHERE name = ?', (name,))
             result = cursor.fetchone()
             conn.close()
-
             if result:
                 encrypted_data = result[0]
                 decrypted_json = self._decrypt_data(encrypted_data, master_password)
@@ -129,20 +121,20 @@ class Database:
             return None
 
     def search_secrets(self, search_term=''):
+        # Поиск секретов по названию
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-
         if search_term:
             cursor.execute('SELECT name FROM secrets WHERE name LIKE ? ORDER BY name',
                            (f'%{search_term}%',))
         else:
             cursor.execute('SELECT name FROM secrets ORDER BY name')
-
         results = [row[0] for row in cursor.fetchall()]
         conn.close()
         return results
 
     def delete_secret(self, name):
+        # Удаление секрета
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('DELETE FROM secrets WHERE name = ?', (name,))
@@ -150,9 +142,9 @@ class Database:
         conn.close()
 
     def _derive_key(self, master_password: str, salt: bytes = None) -> tuple:
+        # Генерация ключа шифрования из пароля
         if salt is None:
             salt = os.urandom(16)
-
         key = base64.urlsafe_b64encode(hashlib.pbkdf2_hmac(
             'sha256',
             master_password.encode(),
@@ -163,39 +155,34 @@ class Database:
         return key, salt
 
     def _encrypt_data(self, data: str, master_password: str) -> bytes:
+        # Шифрование данных
         salt = os.urandom(16)
         key, salt = self._derive_key(master_password, salt)
-
         data_bytes = data.encode()
         encrypted = bytearray()
         key_bytes = base64.urlsafe_b64decode(key)
-
         for i, byte in enumerate(data_bytes):
             encrypted.append(byte ^ key_bytes[i % len(key_bytes)])
-
         return salt + bytes(encrypted)
 
     def _decrypt_data(self, encrypted_data: bytes, master_password: str) -> str:
+        # Дешифрование данных
         try:
             salt = encrypted_data[:16]
             actual_data = encrypted_data[16:]
-
             key, _ = self._derive_key(master_password, salt)
-
             decrypted = bytearray()
             key_bytes = base64.urlsafe_b64decode(key)
-
             for i, byte in enumerate(actual_data):
                 decrypted.append(byte ^ key_bytes[i % len(key_bytes)])
-
             return decrypted.decode()
         except Exception:
             raise ValueError("Неверный мастер-пароль или поврежденные данные")
 
     def _hash_password(self, password: str, salt: bytes = None) -> tuple:
+        # Хеширование пароля
         if salt is None:
             salt = os.urandom(16)
-
         password_hash = hashlib.pbkdf2_hmac(
             'sha256',
             password.encode(),
@@ -205,6 +192,7 @@ class Database:
         return base64.b64encode(password_hash).decode(), salt
 
     def _verify_password(self, password: str, stored_hash: str, salt: bytes) -> bool:
+        # Проверка хеша пароля
         try:
             new_hash, _ = self._hash_password(password, salt)
             return new_hash == stored_hash
