@@ -2,7 +2,7 @@ import tkinter as tk
 
 
 class RoundedButton(tk.Canvas):
-    """Кастомная кнопка с закругленными краями"""
+    #Кастомная кнопка с закругленными краями
 
     def __init__(self, parent, text, command=None, width=120, height=30, corner_radius=20,
                  bg_color="#007bff", fg_color="#ffffff", hover_color="#0056b3",
@@ -55,4 +55,5 @@ class RoundedButton(tk.Canvas):
 
     def _on_leave(self, event):
         self.current_color = self.bg_color
+
         self.draw_button()
