@@ -3,8 +3,6 @@ from tkinter import messagebox
 
 
 class PasswordDialog:
-    # Диалоговое окно для ввода пароля
-
     def __init__(self, parent, title, prompt, theme=None):
         self.parent = parent
         self.title = title
@@ -13,20 +11,20 @@ class PasswordDialog:
         self.result = None
 
     def show(self):
-        # Отображение диалогового окна
-        dialog_frame = tk.Frame(self.parent, bg="black", relief="raised", bd=2)
+        # Используем серый фон вместо черного
+        dialog_frame = tk.Frame(self.parent, bg="#2f3136", relief="flat", bd=0)
         dialog_frame.place(relx=0.5, rely=0.6, anchor=tk.CENTER, width=450, height=250)
 
         if self.theme:
-            bg_color = self.theme.get("bg_secondary", "black")
+            bg_color = self.theme.get("bg_secondary", "#2f3136")  # Серый фон по умолчанию
             fg_color = self.theme.get("fg", "white")
-            entry_bg = self.theme.get("entry_bg", "black")
+            entry_bg = self.theme.get("entry_bg", "#40444b")
             entry_fg = self.theme.get("entry_fg", "white")
             cursor_color = self.theme.get("cursor_color", "white")
         else:
-            bg_color = "black"
+            bg_color = "#2f3136"  # Серый фон
             fg_color = "white"
-            entry_bg = "black"
+            entry_bg = "#40444b"  # Серый для поля ввода
             entry_fg = "white"
             cursor_color = "white"
 
@@ -94,7 +92,6 @@ class PasswordDialog:
         return result[0]
 
     def toggle_password_visibility(self):
-        # Переключение видимости пароля
         if self.password_visible:
             self.entry.config(show='*')
             self.show_password_btn.config(text="👁")
@@ -106,16 +103,12 @@ class PasswordDialog:
 
 
 class SecretPasswordDialog(PasswordDialog):
-    # Диалог для ввода мастер-пароля при работе с секретами
-
     def __init__(self, parent, secret_name, action, theme):
         prompt = f"Введите мастер-пароль для {action} секрета '{secret_name}':"
         super().__init__(parent, "Мастер-пароль", prompt, theme)
 
 
 class AddSecretDialog:
-    # Диалог добавления нового секрета
-
     def __init__(self, parent, theme):
         self.parent = parent
         self.theme = theme
@@ -123,7 +116,6 @@ class AddSecretDialog:
         self.create_dialog()
 
     def create_dialog(self):
-        # Создание диалогового окна
         dialog = tk.Toplevel(self.parent)
         dialog.title("Добавить новый секрет")
         dialog.geometry("500x350")
@@ -164,22 +156,22 @@ class AddSecretDialog:
         btn_frame = tk.Frame(dialog, bg=self.theme["bg_secondary"])
         btn_frame.grid(row=4, column=0, columnspan=2, pady=20)
 
+        # Увеличиваем ширину кнопок и уменьшаем шрифт для лучшего размещения текста
         save_btn = tk.Button(btn_frame, text="Сохранить", bg="#007bff", fg="white",
                              command=lambda: self.save(dialog),
-                             font=("Arial", 11, "bold"))
-        save_btn.grid(row=0, column=0, padx=12)
+                             font=("Arial", 10), width=12, height=1)  # Уменьшен шрифт и задана ширина
+        save_btn.grid(row=0, column=0, padx=8, ipadx=5, ipady=2)  # Добавлены внутренние отступы
 
         cancel_btn = tk.Button(btn_frame, text="Отмена", bg="#dc3545", fg="white",
                                command=dialog.destroy,
-                               font=("Arial", 11))
-        cancel_btn.grid(row=0, column=1, padx=12)
+                               font=("Arial", 10), width=12, height=1)  # Уменьшен шрифт и задана ширина
+        cancel_btn.grid(row=0, column=1, padx=8, ipadx=5, ipady=2)  # Добавлены внутренние отступы
 
         dialog.bind('<Return>', lambda e: self.save(dialog))
         dialog.columnconfigure(1, weight=1)
         self.parent.wait_window(dialog)
 
     def save(self, dialog):
-        # Сохранение данных секрета
         name = self.entries["name"].get().strip()
         host = self.entries["host"].get().strip()
         username = self.entries["username"].get().strip()
